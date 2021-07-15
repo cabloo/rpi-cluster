@@ -1,16 +1,42 @@
 {
     "variables": {
         "ssh_key_src": "id_rsa.pub",
-        "image_home_dir": "/home/pi"
+        "image_home_dir": "/home/pi",
+        "cluster_mgr_addr": "172.16.0.101",
+        "nfs_root": "/nfs/client1"
     },
-    "builders": [
-      {
-        "type": "arm-image",
-        "iso_url": "https://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/2020-02-13-raspbian-buster-lite.zip",
-        "iso_checksum": "sha256:12ae6e17bf95b6ba83beca61e7394e7411b45eba7e6a520f434b0748ea7370e8",
-        "target_image_size": 4294967296
-      }
-    ],
+    "builders": [{
+        "type": "arm",
+        "file_urls" : ["https://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/2020-02-13-raspbian-buster-lite.zip"],
+        "file_checksum_url": "https://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/2020-02-13-raspbian-buster-lite.zip.sha256",
+        "file_checksum_type": "sha256",
+        "file_target_extension": "zip",
+        "image_build_method": "reuse",
+        "image_path": "raspberry-pi.img",
+        "image_size": "2G",
+        "image_type": "dos",
+        "image_partitions": [
+          {
+            "name": "boot",
+            "type": "c",
+            "start_sector": "8192",
+            "filesystem": "vfat",
+            "size": "256M",
+            "mountpoint": "/boot"
+          },
+          {
+            "name": "root",
+            "type": "83",
+            "start_sector": "532480",
+            "filesystem": "ext4",
+            "size": "0",
+            "mountpoint": "/"
+          }
+        ],
+        "image_chroot_env": ["PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"],
+        "qemu_binary_source_path": "/usr/bin/qemu-arm-static",
+        "qemu_binary_destination_path": "/usr/bin/qemu-arm-static"
+    }],
     "provisioners": [
         {
           "type": "shell",
@@ -26,6 +52,14 @@
         {
           "type": "shell",
           "inline": [
+            "chown -R pi:pi {{user `image_home_dir`}}/.ssh",
+            "chmod 0700 {{user `image_home_dir`}}/.ssh",
+            "chmod 0600 {{user `image_home_dir`}}/.ssh/authorized_keys"
+          ]
+        },
+        {
+          "type": "shell",
+          "inline": [
             "touch /boot/ssh"
           ]
         },
@@ -35,6 +69,17 @@
             "sed '/PasswordAuthentication/d' -i /etc/ssh/sshd_config",
             "echo >> /etc/ssh/sshd_config",
             "echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config"
+          ]
+        },
+        {
+          "type": "shell",
+          "inline": [
+            "rm -fv /etc/init.d/dphys-swapfile /etc/rc*.d/*dphys-swapfile",
+            "rm -fv /etc/init.d/resize2fs_once /etc/rc*.d/*resize2fs_once",
+            "touch /boot/ssh",
+            "sed -i /UUID/d /etc/fstab",
+            "bash -c 'echo dtparam=sd_poll_once=on >> /boot/config.txt'",
+            "echo 'console=serial0,115200 console=tty root=/dev/nfs nfsroot={{user `cluster_mgr_addr`}}:{{user `nfs_root`}},vers=3 rw ip=dhcp rootwait elevator=deadline' > /boot/cmdline.txt"
           ]
         }
     ]

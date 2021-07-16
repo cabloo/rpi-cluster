@@ -28,6 +28,7 @@ sudo cat /var/log/daemon.log | grep DHCPACK | cut -d ')' -f2 | cut -d ' ' -f2 | 
 # To Do
 - Make the network file system read only
 - Load entire network image into memory instead of mounting it as an NFS share? This will slow boot time and eat up a significant chunk of memory but may be worth it for scalibility, performance, and availability in the event of cluster manager downtime
+- Put the cluster manager daemons into docker containers (e.g. https://jacobrsnyder.com/2021/01/20/network-booting-a-raspberry-pi-with-docker-support/) 
 - Load Kubernetes onto the cluster?
   - Have nodes automatically add themselves to the cluster on boot
   - Automatically distribute work between nodes

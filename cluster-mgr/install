@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+
+CLUSTER_MGR_IP=192.168.2.100
+DHCP_START_IP=192.168.2.101
+DHCP_END_IP=192.168.2.200
+
+CLUSTER_MGR_IP=172.16.0.101
+DHCP_START_IP=172.16.0.200
+DHCP_END_IP=172.16.0.253
+
+systemctl mask rpi-eeprom-update
+
+apt-get update && apt-get install -y dnsmasq nfs-kernel-server || exit
+mkdir -p /nfs/client1 || exit
+ln -s /nfs/client1/boot/ /tftpboot
+
+tee /etc/dnsmasq.conf << EOF
+interface=eth0
+no-hosts
+dhcp-range=${DHCP_START_IP},${DHCP_END_IP},12h
+log-dhcp
+enable-tftp
+tftp-root=/tftpboot
+pxe-service=0,"Raspberry Pi Boot"
+EOF
+
+systemctl enable systemd-networkd || exit
+systemctl enable dnsmasq.service || exit
+systemctl restart dnsmasq.service || exit
+
+tee /etc/exports << EOF
+/nfs/client1 *(rw,sync,no_subtree_check,no_root_squash)
+/tftpboot *(rw,sync,no_subtree_check,no_root_squash)
+EOF
+
+systemctl enable rpcbind || exit
+systemctl restart rpcbind || exit
+systemctl enable nfs-kernel-server || exit
+systemctl restart nfs-kernel-server || exit
